@@ -1,0 +1,32 @@
+{
+  "name": "invokeworks",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.28.2",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "dev": "pnpm --filter @invokeworks/server dev",
+    "dev:web": "pnpm --filter @invokeworks/web dev",
+    "lint": "eslint . && prettier --check .",
+    "typecheck": "pnpm -r typecheck",
+    "test": "vitest run",
+    "test:integration": "vitest run tests/integration",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "@hono/node-server": "^1.19.1",
+    "@invokeworks/liveauth": "workspace:*",
+    "@invokeworks/shared": "workspace:*",
+    "@modelcontextprotocol/client": "^2.0.0",
+    "@eslint/js": "^9.35.0",
+    "@types/node": "^24.3.0",
+    "eslint": "^9.35.0",
+    "prettier": "^3.6.2",
+    "typescript": "^5.9.2",
+    "typescript-eslint": "^8.42.0",
+    "vitest": "^3.2.4"
+  }
+}

@@ -1,0 +1,8 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { toolCatalog } from '@invokeworks/tools';
+---
+<Layout title="Useful tools for autonomous agents">
+  <section class="hero"><div class="eyebrow">Open-source MCP infrastructure</div><h1>Useful tools for autonomous agents.</h1><p>InvokeWorks is a focused collection of dependable network utilities that agents can discover, call, and pay for through one public MCP endpoint.</p><div class="endpoint"><span class="dot"></span>https://mcp.invokeworks.dev/mcp</div><div class="actions"><a class="button primary" href="/connect/">Connect an agent</a><a class="button" href="/tools/">Explore {toolCatalog.length} tools</a></div></section>
+  <section class="section"><div class="eyebrow">Built to inspect</div><h2>Small surface. Clear contracts.</h2><div class="grid">{toolCatalog.map(tool => <a class="card" href={`/tools/${tool.name}/`}><div class="eyebrow">{tool.docs.category}</div><h2>{tool.displayName}</h2><p>{tool.description}</p><span class="price">{tool.priceSats} SAT{tool.priceSats === 1 ? '' : 'S'} / CALL</span></a>)}</div></section>
+</Layout>

@@ -1,0 +1,17 @@
+{
+  "name": "@invokeworks/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro check && astro build",
+    "typecheck": "astro check"
+  },
+  "dependencies": {
+    "@astrojs/check": "^0.9.4",
+    "@invokeworks/tools": "workspace:*",
+    "astro": "^5.13.5",
+    "typescript": "^5.9.2"
+  }
+}

@@ -1,0 +1,6 @@
+---
+import Layout from '../../layouts/Layout.astro'; import { toolCatalog } from '@invokeworks/tools';
+export function getStaticPaths(){ return toolCatalog.map(tool => ({ params: { name: tool.name }, props: { tool } })); }
+const { tool } = Astro.props;
+---
+<Layout title={tool.displayName} description={tool.description}><section class="section"><div class="eyebrow">{tool.docs.category} · {tool.priceSats} sats/call</div><h1>{tool.name}</h1><p class="lead">{tool.longDescription}</p><h2>Example input</h2><pre><code>{JSON.stringify(tool.docs.examples[0], null, 2)}</code></pre><div class="actions"><a class="button primary" href="/connect/">Connect</a><a class="button" href="/tools/">All tools</a></div></section></Layout>

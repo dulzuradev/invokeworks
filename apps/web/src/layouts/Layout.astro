@@ -1,0 +1,23 @@
+---
+import '../styles/global.css';
+interface Props { title: string; description?: string; }
+const { title, description = 'Useful open-source MCP tools for autonomous agents.' } = Astro.props;
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#0b0e11" />
+    <title>{title} · InvokeWorks</title>
+  </head>
+  <body>
+    <header>
+      <a class="brand" href="/" aria-label="InvokeWorks home"><span class="mark">IW</span> InvokeWorks</a>
+      <nav aria-label="Main navigation"><a href="/tools/">Tools</a><a href="/connect/">Connect</a><a href="/about/">About</a><a href="/open-source/">GitHub</a></nav>
+    </header>
+    <main><slot /></main>
+    <footer><span>InvokeWorks · Open source under MIT</span><span>Authentication and usage metering powered by <a href="https://liveauth.app">LiveAuth</a>.</span></footer>
+  </body>
+</html>

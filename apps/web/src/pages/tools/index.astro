@@ -1,0 +1,4 @@
+---
+import Layout from '../../layouts/Layout.astro'; import { toolCatalog } from '@invokeworks/tools';
+---
+<Layout title="Tool catalog"><section class="section"><div class="eyebrow">Catalog</div><h1>Tools</h1><p class="lead">Purpose-built network primitives with structured output, strict validation, and transparent per-call prices.</p><div class="grid">{toolCatalog.map(tool => <a class="card" href={`/tools/${tool.name}/`}><div class="eyebrow">{tool.docs.category}</div><h2>{tool.name}</h2><p>{tool.description}</p><span class="price">{tool.priceSats} SAT{tool.priceSats === 1 ? '' : 'S'} / CALL</span></a>)}</div></section></Layout>

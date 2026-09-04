@@ -1,0 +1,24 @@
+{
+  "name": "@invokeworks/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "NODE_OPTIONS=--conditions=development tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.19.1",
+    "@invokeworks/liveauth": "workspace:*",
+    "@invokeworks/shared": "workspace:*",
+    "@invokeworks/tools": "workspace:*",
+    "@modelcontextprotocol/server": "^2.0.0",
+    "hono": "^4.9.6",
+    "zod": "^4.1.5"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.5"
+  }
+}

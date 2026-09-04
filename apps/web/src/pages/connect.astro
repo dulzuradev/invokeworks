@@ -1,0 +1,4 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+<Layout title="Connect"><section class="section"><div class="eyebrow">Getting started</div><h1>Connect your agent.</h1><p class="lead">Point a Streamable HTTP MCP client at the endpoint below and attach your LiveAuth bearer token for paid tool calls.</p><pre><code>https://mcp.invokeworks.dev/mcp</code></pre><h2>Authorization</h2><pre><code>Authorization: Bearer &lt;liveauth-jwt&gt;</code></pre><p>Tool discovery is public. Every invocation is authorized and metered by LiveAuth, with the signed receipt returned in MCP result metadata.</p></section></Layout>
