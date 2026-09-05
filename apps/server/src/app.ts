@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { bodyLimit } from 'hono/body-limit';
 import { secureHeaders } from 'hono/secure-headers';
 import { correlationId, type AppEnv } from '@invokeworks/shared';
 import {
@@ -47,6 +48,7 @@ export function createApp(
     );
   });
   app.get('/health', (c) => c.json({ status: 'ok', service: 'invokeworks-mcp', version: '0.1.0' }));
+  app.use('/mcp', bodyLimit({ maxSize: 64 * 1024 }));
   app.all('/mcp', (c) => mcp.fetch(c.req.raw));
   app.notFound((c) => c.json({ error: 'not_found' }, 404));
   return { app, close: () => mcp.close() };

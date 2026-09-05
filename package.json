@@ -20,6 +20,7 @@
     "@hono/node-server": "^1.19.1",
     "@invokeworks/liveauth": "workspace:*",
     "@invokeworks/shared": "workspace:*",
+    "@invokeworks/tools": "workspace:*",
     "@modelcontextprotocol/client": "^2.0.0",
     "@eslint/js": "^9.35.0",
     "@types/node": "^24.3.0",

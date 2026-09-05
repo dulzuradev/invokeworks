@@ -15,5 +15,12 @@ export const tools = [
   createTlsInspect(),
 ] as unknown as ToolDefinition[];
 export const toolCatalog = tools.map(
-  ({ handler: _handler, inputSchema: _schema, ...metadata }) => metadata,
+  ({ name, displayName, description, longDescription, priceSats, docs }) => ({
+    name,
+    displayName,
+    description,
+    longDescription,
+    priceSats,
+    docs,
+  }),
 );

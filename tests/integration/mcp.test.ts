@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { serve, type ServerType } from '@hono/node-server';
-import { Client } from '@modelcontextprotocol/client';
-import { StreamableHTTPClientTransport } from '@modelcontextprotocol/client/streamableHttp';
+import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import type { LiveAuthAdapter } from '@invokeworks/liveauth';
 import { parseEnv } from '@invokeworks/shared';
 import {
@@ -163,5 +162,13 @@ describe('MCP over HTTP through LiveAuth boundary', () => {
       body: '{',
     });
     expect(response.status).toBeGreaterThanOrEqual(400);
+  });
+  it('rejects request bodies larger than 64 KiB', async () => {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ value: 'x'.repeat(64 * 1024) }),
+    });
+    expect(response.status).toBe(413);
   });
 });

@@ -7,9 +7,11 @@ describe('LiveAuth adapter', () => {
     expect(bearerToken('Basic abc')).toBeNull();
   });
   it('attributes price and idempotency to the public gate', async () => {
-    const invoke = vi.fn(async (_token, input, handler, _context, _options) =>
-      handler(input, { liveAuth: { charge: { status: 'ok', receipt: 'signed' } } }),
-    );
+    const invoke = vi.fn(async (_token, input, handler, context, options) => {
+      void context;
+      void options;
+      return handler(input, { liveAuth: { charge: { status: 'ok', receipt: 'signed' } } });
+    });
     const adapter = createLiveAuthAdapter({
       publicKey: 'la_pk_test',
       baseUrl: 'https://api.liveauth.app',

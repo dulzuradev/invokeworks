@@ -91,7 +91,6 @@ export function createInvokeWorksMcp(args: {
     },
     {
       legacy: 'stateless',
-      maxRequestBodySize: 64 * 1024,
       responseMode: 'json',
       onerror: (error) => args.logger.error({ error: error.message }, 'MCP transport error'),
     },

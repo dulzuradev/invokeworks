@@ -32,9 +32,21 @@ interface FetchOptions {
 type Fetcher = (
   input: string,
   init: FetchOptions,
-) => Promise<{ status: number; headers: Headers; body: ReadableStream<Uint8Array> | null }>;
+) => Promise<{ status: number; headers: HeadersLike; body: ReadableBody | null }>;
 
-async function drainBounded(body: ReadableStream<Uint8Array> | null): Promise<number> {
+interface HeadersLike {
+  get(name: string): string | null;
+  forEach(callback: (value: string, key: string) => void): void;
+}
+
+interface ReadableBody {
+  getReader(): {
+    read(): Promise<{ done: boolean; value?: unknown }>;
+    cancel(reason?: unknown): Promise<void>;
+  };
+}
+
+async function drainBounded(body: ReadableBody | null): Promise<number> {
   if (!body) return 0;
   const reader = body.getReader();
   let total = 0;
@@ -42,6 +54,7 @@ async function drainBounded(body: ReadableStream<Uint8Array> | null): Promise<nu
     while (true) {
       const { done, value } = await reader.read();
       if (done) return total;
+      if (!(value instanceof Uint8Array)) throw new Error('Unexpected response body chunk');
       total += value.byteLength;
       if (total > MAX_BYTES) throw new Error(`Response exceeds ${MAX_BYTES} byte limit`);
     }
@@ -50,10 +63,11 @@ async function drainBounded(body: ReadableStream<Uint8Array> | null): Promise<nu
   }
 }
 
-function safeHeaders(headers: Headers): Record<string, string> {
+function safeHeaders(headers: HeadersLike): Record<string, string> {
   const out: Record<string, string> = {};
-  for (const [key, value] of headers)
+  headers.forEach((value, key) => {
     if (!['set-cookie', 'proxy-authenticate'].includes(key.toLowerCase())) out[key] = value;
+  });
   return out;
 }
 

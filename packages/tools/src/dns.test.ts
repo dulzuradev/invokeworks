@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import { createDnsLookup } from './dns.js';
 
 it('normalizes and resolves DNS records', async () => {

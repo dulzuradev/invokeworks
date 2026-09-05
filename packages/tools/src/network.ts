@@ -31,7 +31,7 @@ export function isPublicAddress(address: string): boolean {
   if (!net.isIP(address)) return false;
   const parsed = ipaddr.parse(address);
   const normalized =
-    parsed.kind() === 'ipv6' && parsed.isIPv4MappedAddress() ? parsed.toIPv4Address() : parsed;
+    parsed instanceof ipaddr.IPv6 && parsed.isIPv4MappedAddress() ? parsed.toIPv4Address() : parsed;
   return normalized.range() === 'unicast';
 }
 

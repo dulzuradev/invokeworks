@@ -31,7 +31,7 @@ export function createTlsInspect(
         rejectUnauthorized: true,
         timeout: 10_000,
       });
-      return await new Promise((resolve, reject) => {
+      return await new Promise<{ data: Record<string, unknown> }>((resolve, reject) => {
         const abort = () =>
           socket.destroy(
             context.signal?.reason instanceof Error ? context.signal.reason : new Error('Aborted'),
