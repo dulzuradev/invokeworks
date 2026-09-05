@@ -1,6 +1,6 @@
 # LiveAuth dogfooding notes
 
-Observed while integrating strictly as an unrelated third-party customer through public docs and `@liveauth-labs/mcp-server`. No internal LiveAuth material was consulted.
+Findings 001–004 were observed while integrating strictly as an unrelated third-party customer through public docs and `@liveauth-labs/mcp-server`, without internal LiveAuth material. Finding 005 includes a subsequent source-level investigation and read-only verification in the LiveAuth console.
 
 ### LA-DOGFOOD-001 — Environment variable naming is inconsistent
 
@@ -49,3 +49,22 @@ Observed while integrating strictly as an unrelated third-party customer through
 **Workaround:** Tests inject a contract-faithful gate at the package boundary. Real paid tests remain opt-in; production never emulates LiveAuth.
 
 **Suggested LiveAuth improvement:** Provide a sandbox or public test adapter covering validation, denial, idempotency, and receipts.
+
+
+### LA-DOGFOOD-005 — MCP SDK hashes an API-key alias instead of the canonical project key
+
+**Observed:** September 4–5, 2026, using the published `@liveauth-labs/mcp-server@1.1.1` from `/Users/scott/invokeworks-smoke` against `https://api.liveauth.app`. `start()` succeeds, but automatic `confirm()` returns HTTP 401 with `LiveAuth MCP returned non-JSON response: Hash mismatch`.
+
+**Proven identity:** The LiveAuth console identifies InvokeWorks as project `992d4df5-b469-44f2-95db-0b739d972cc1`, with primary public key `la_pk_M-LSoRpQKfseG-5SGps4xL_4`. Its API Keys page lists `la_pk_N9mKdQio51koSH51SOkN96Am` as the active `smoke-test` key for that same project. These are two keys belonging to one project.
+
+**Root cause:** `ApiKeyService.AuthenticatePublicKeyAsync` accepts an active `ProjectApiKey.PublicKey` and resolves its owning `Project`. The MCP controller creates and verifies PoW using that project's canonical `Project.PublicKey`. The SDK's `LiveAuthMcpClient.solvePow()` instead overrides the challenge key with its configured API public key. This changes the SHA-256 preimage and produces `Hash mismatch`. The browser SDK and CLI already solve using the challenge key.
+
+**Evidence:** Four direct-fetch starts and three SDK starts returned the same correct project ID and canonical key, with seven distinct quote IDs and challenge hex values. Both automatic confirmation and explicit configured-key solving failed with HTTP 401. Explicit solving with `challenge.projectPublicKey` succeeded through `confirm({powSolution})`; a deliberately invalid hash was rejected. The returned JWT contained `projectId=992d4df5-b469-44f2-95db-0b739d972cc1`, `authType=mcp_pow`, and the matching `mcpQuoteId`; it did not contain a `projectPublicKey` claim. A subsequent authenticated usage request returned `active`. No JWT or refresh token was logged.
+
+**Expected behavior and fix:** Keep the configured API key in `X-LW-Public`, and solve with `solvePow(session.powChallenge)`. This source change passed the production default flow with the original configured key. Rejecting unequal public-key strings would break valid aliases; project isolation is enforced by the server's resolved project ID, signed challenge, and quote lookup. No cross-project issuance was observed in this investigation.
+
+**Regression coverage:** New SDK cases cover primary keys, aliases, unchanged request headers, and invalid-solution rejection. New server tests execute the real public-key middleware and cover canonical PoW, signature-validated JWT project claims, invalid hashes, foreign-project quotes/challenges, fresh sessions/replay, and Lightning/L402 alias-session binding. The SDK suite passed 47 tests and its TypeScript build; 45 relevant server tests passed with a successful .NET build (existing warnings).
+
+**Release impact:** Publish a fixed MCP npm version newer than 1.1.1. No LiveAuth runtime server change or deployment is required for this PoW fix. InvokeWorks requires no application-code workaround or configured-key change; consumers performing SDK client authentication should update the package once released.
+
+**Documentation/API improvements:** The SDK README now distinguishes authentication keys from canonical PoW keys and explains project-ID checks. The console displays this project as TEST; source inspection also shows primary-key resolution checks LIVE/AllowDemoAuth while the API-key alias path checks active status without that environment condition. This separate policy asymmetry should be documented/reviewed, but was not changed in this fix. The plain-text `Hash mismatch` response also obscures the authentication error behind the SDK's non-JSON message; a structured API error would improve diagnostics.
