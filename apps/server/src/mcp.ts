@@ -1,5 +1,5 @@
 import { createMcpHandler, McpServer } from '@modelcontextprotocol/server';
-import { bearerToken, type LiveAuthAdapter } from '@invokeworks/liveauth';
+import { bearerToken, liveAuthErrorMeta, type LiveAuthAdapter } from '@invokeworks/liveauth';
 import { tools, type ToolDefinition } from '@invokeworks/tools';
 import { correlationId } from '@invokeworks/shared';
 import type { Logger } from './logger.js';
@@ -66,7 +66,14 @@ export function createInvokeWorksMcp(args: {
                 _meta: { liveauth: result.charge, requestId },
               };
             } catch (error) {
-              const message = safeErrorMessage(error);
+              const errorMeta = liveAuthErrorMeta(error);
+              const billing = errorMeta.liveauth as
+                { reason?: string; billed?: boolean } | undefined;
+              const message = billing?.reason
+                ? `LiveAuth denied this tool call: ${billing.reason}`
+                : billing?.billed
+                  ? 'Tool execution failed after LiveAuth authorization'
+                  : safeErrorMessage(error);
               args.logger.error(
                 {
                   requestId,
@@ -81,7 +88,7 @@ export function createInvokeWorksMcp(args: {
               return {
                 content: [{ type: 'text' as const, text: message }],
                 isError: true,
-                _meta: { requestId },
+                _meta: { requestId, ...errorMeta },
               };
             }
           },

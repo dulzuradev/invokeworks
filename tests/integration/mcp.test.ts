@@ -1,7 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { serve, type ServerType } from '@hono/node-server';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
-import type { LiveAuthAdapter } from '@invokeworks/liveauth';
+import {
+  createLiveAuthAdapter,
+  type LiveAuthAdapter,
+  type LiveAuthGate,
+} from '@invokeworks/liveauth';
+import { createRequire } from 'node:module';
+const sdkPath = createRequire(
+  new URL('../../packages/liveauth/package.json', import.meta.url),
+).resolve('@liveauth-labs/mcp-server');
+const { createMcpGate } = await import(sdkPath);
 import { parseEnv } from '@invokeworks/shared';
 import {
   createDnsLookup,
@@ -154,6 +163,88 @@ describe('MCP over HTTP through LiveAuth boundary', () => {
       }
     }
     expect(invoke.mock.calls.map((call) => call[0].requestId)).toEqual(['stable-id', 'stable-id']);
+  });
+  it('returns real SDK denial codes over MCP without charging', async () => {
+    const adapter = createLiveAuthAdapter({
+      publicKey: 'test',
+      baseUrl: 'https://test.invalid',
+      gateFactory: (options) =>
+        createMcpGate({
+          ...options,
+          fetch: async (url: string) =>
+            new Response(
+              JSON.stringify(
+                String(url).endsWith('/usage')
+                  ? { status: 'active' }
+                  : { status: 'deny', reason: 'tool_inactive', callsUsed: 0, satsUsed: 0 },
+              ),
+            ),
+        }) as LiveAuthGate,
+    });
+    invoke.mockImplementationOnce((args) => adapter.invoke(args));
+    const mcp = await client();
+    try {
+      const result = await mcp.callTool({
+        name: 'dns_lookup',
+        arguments: { hostname: 'example.com' },
+      });
+      expect(result.isError).toBe(true);
+      expect(result._meta).toMatchObject({
+        requestId: 'req-integration',
+        liveauth: { reason: 'tool_inactive', billed: false },
+      });
+    } finally {
+      await mcp.close();
+    }
+  });
+  it('preserves a billed execution failure and receipt through the real SDK and MCP', async () => {
+    const adapter = createLiveAuthAdapter({
+      publicKey: 'test',
+      baseUrl: 'https://test.invalid',
+      gateFactory: (options) =>
+        createMcpGate({
+          ...options,
+          fetch: async (url: string) =>
+            new Response(
+              JSON.stringify(
+                String(url).endsWith('/usage')
+                  ? { status: 'active' }
+                  : {
+                      status: 'ok',
+                      grossSats: 1,
+                      callsUsed: 1,
+                      satsUsed: 1,
+                      revenueEventId: 'event',
+                      receipt: {
+                        body: { idempotencyKey: 'req-integration', requestId: 'server-request' },
+                      },
+                    },
+              ),
+            ),
+        }) as LiveAuthGate,
+    });
+    invoke.mockImplementationOnce((args) => adapter.invoke(args));
+    const mcp = await client();
+    try {
+      const result = await mcp.callTool({
+        name: 'dns_lookup',
+        arguments: { hostname: 'failure.example' },
+      });
+      expect(result.isError).toBe(true);
+      expect(result._meta).toMatchObject({
+        requestId: 'req-integration',
+        liveauth: {
+          billed: true,
+          grossSats: 1,
+          revenueEventId: 'event',
+          idempotencyKey: 'req-integration',
+          receipt: { body: { requestId: 'server-request', idempotencyKey: 'req-integration' } },
+        },
+      });
+      expect(JSON.stringify(result)).not.toContain('valid-token');
+    } finally {
+      await mcp.close();
+    }
   });
   it('rejects malformed JSON', async () => {
     const response = await fetch(url, {
