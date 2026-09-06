@@ -15,6 +15,6 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@liveauth-labs/mcp-server": "^1.0.8"
+    "@liveauth-labs/mcp-server": "^1.2.0"
   }
 }
