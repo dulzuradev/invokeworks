@@ -15,6 +15,71 @@ InvokeWorks is an open-source, publicly hosted collection of focused MCP tools. 
 | `dns_lookup`   | A, AAAA, CNAME, MX, TXT, NS, and SOA queries                        |  1 sat |
 | `http_inspect` | HTTP status, redirects, headers, size, timing, and security headers | 2 sats |
 | `tls_inspect`  | TLS protocol, cipher, certificate, SANs, validity, and chain        | 2 sats |
+| `site_audit`   | Combined DNS, TLS, HTTP, and security-header audit                  | 5 sats |
+
+### Site Audit
+
+Run a combined DNS, TLS, HTTP, and security-header audit of a public website.
+LiveAuth meters `site_audit` at **5 sats/call** through the existing gate.
+
+Example input (bare hostnames default to HTTPS):
+
+```json
+{ "target": "https://example.com" }
+```
+
+Shortened example output (illustrative; actual results vary):
+
+```json
+{
+  "target": "https://example.com/",
+  "hostname": "example.com",
+  "dns": {
+    "records": { "A": ["93.184.216.34"], "AAAA": [], "CNAME": [], "MX": [], "NS": [] },
+    "failedRecordTypes": []
+  },
+  "tls": { "protocol": "TLSv1.3", "hostnameValid": true, "certificate": { "daysRemaining": 90 } },
+  "http": {
+    "initialUrl": "https://example.com/",
+    "finalUrl": "https://example.com/",
+    "status": 200,
+    "https": true,
+    "redirects": []
+  },
+  "securityHeaders": {
+    "strictTransportSecurity": { "present": false, "value": null, "applicable": true }
+  },
+  "issues": [
+    {
+      "severity": "warning",
+      "code": "missing_hsts",
+      "message": "strict-transport-security is absent; consider this recommended protection where appropriate."
+    }
+  ],
+  "score": 95
+}
+```
+
+The score is informational, **not a formal security certification**: start at 100,
+subtract 25 per critical finding and 5 per warning, subtract nothing for informational
+findings, and clamp to 0–100. Header presence does not establish policy correctness;
+recommendations depend on the endpoint's purpose. CSP `frame-ancestors` satisfies the
+frame-protection check without X-Frame-Options. HSTS is evaluated only on a final HTTPS response.
+
+DNS returns A, AAAA, CNAME, MX and NS records. Absent records are empty arrays;
+other query failures appear in `failedRecordTypes`. TLS describes the original target
+(on the HTTPS URL port, or port 443 for HTTP inputs), while HTTP describes the final
+response and redirect chain. TLS verification stays enabled: expired/mismatched
+certificates produce findings without returning unverified certificate details.
+Failed TLS/HTTP sections are `null`; security headers are `null` when HTTP is unavailable.
+A non-public or unresolved starting destination fails the call. Failures after charging
+remain billable with sanitized metadata and receipts. No response bodies are returned.
+
+Stable issue codes: `dns_lookup_failed`, `tls_failed`, `tls_certificate_expired`,
+`tls_certificate_expiring` (30 days or less), `tls_hostname_mismatch`, `tls_obsolete_protocol`,
+`http_failed`, `http_not_https`, `http_insecure_hop`, `http_error_status`, `missing_hsts`,
+`missing_csp`, `missing_x_content_type_options`, `missing_frame_protection`,
+`missing_referrer_policy`, `missing_permissions_policy`.
 
 ## Architecture
 
@@ -95,7 +160,7 @@ Route `mcp.invokeworks.dev` to port 3000 and preserve `Authorization`, `MCP-Prot
 Using ordinary customer-facing functionality only:
 
 1. Create a LiveAuth project and obtain its public key.
-2. Register `dns_lookup`, `http_inspect`, and `tls_inspect` at 1, 2, and 2 sats.
+2. Register `dns_lookup`, `http_inspect`, `tls_inspect`, and `site_audit` at 1, 2, 2, and 5 sats.
 3. Configure budgets/rate limits and Lightning settlement in LiveAuth.
 4. Set the public key in the server environment and run an opt-in real charge/receipt test.
 

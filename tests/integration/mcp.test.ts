@@ -16,6 +16,7 @@ import {
   createDnsLookup,
   createHttpInspect,
   createTlsInspect,
+  createSiteAudit,
   type ToolDefinition,
 } from '@invokeworks/tools';
 import { createApp } from '../../apps/server/src/app.js';
@@ -41,6 +42,21 @@ describe('MCP over HTTP through LiveAuth boundary', () => {
       }),
       createHttpInspect(),
       createTlsInspect(),
+      createSiteAudit({
+        resolver: {
+          lookup: async (hostname) => {
+            if (hostname === 'failure.example') throw new Error('Sensitive internal DNS error');
+            return [{ address: '93.184.216.34', family: 4 }];
+          },
+        },
+        dns: async ({ hostname, recordType }) => ({ data: { hostname, recordType, records: [] } }),
+        tls: async () => {
+          throw new Error('Fixture TLS failure');
+        },
+        http: async () => {
+          throw new Error('Fixture HTTP failure');
+        },
+      }),
     ] as unknown as ToolDefinition[];
     const built = createApp(parseEnv({ NODE_ENV: 'test' }), {
       liveAuth: { invoke },
@@ -84,6 +100,7 @@ describe('MCP over HTTP through LiveAuth boundary', () => {
         'dns_lookup',
         'http_inspect',
         'tls_inspect',
+        'site_audit',
       ]);
       const result = await mcp.callTool({
         name: 'dns_lookup',
@@ -95,6 +112,51 @@ describe('MCP over HTTP through LiveAuth boundary', () => {
         requestId: 'req-integration',
         priceSats: 1,
       });
+    } finally {
+      await mcp.close();
+    }
+  });
+  it('exposes Site Audit metadata/schema and meters partial results at 5 sats', async () => {
+    const mcp = await client();
+    try {
+      const { tools } = await mcp.listTools();
+      expect(tools.find((t) => t.name === 'site_audit')).toMatchObject({
+        title: 'Site Audit',
+        description: expect.stringContaining('5 sats/call'),
+        inputSchema: {
+          type: 'object',
+          required: ['target'],
+          properties: { target: { type: 'string' } },
+        },
+      });
+      const result = await mcp.callTool({
+        name: 'site_audit',
+        arguments: { target: 'example.com' },
+      });
+      expect(result.isError).not.toBe(true);
+      expect(result.structuredContent).toMatchObject({
+        hostname: 'example.com',
+        tls: null,
+        http: null,
+      });
+      expect(invoke).toHaveBeenCalledOnce();
+      expect(invoke.mock.calls[0]?.[0]).toMatchObject({ toolName: 'site_audit', priceSats: 5 });
+      expect(result._meta).toMatchObject({
+        liveauth: { grossSats: 5, receipt: { signature: 'test' } },
+      });
+    } finally {
+      await mcp.close();
+    }
+  });
+  it('rejects malformed audit targets before charging', async () => {
+    const mcp = await client();
+    try {
+      for (const target of ['', 'ftp://example.com', 'https://bad_host', 'localhost']) {
+        expect((await mcp.callTool({ name: 'site_audit', arguments: { target } })).isError).toBe(
+          true,
+        );
+      }
+      expect(invoke).not.toHaveBeenCalled();
     } finally {
       await mcp.close();
     }
@@ -157,7 +219,7 @@ describe('MCP over HTTP through LiveAuth boundary', () => {
     for (let attempt = 0; attempt < 2; attempt++) {
       const mcp = await client('valid-token', 'stable-id');
       try {
-        await mcp.callTool({ name: 'dns_lookup', arguments: { hostname: 'example.com' } });
+        await mcp.callTool({ name: 'site_audit', arguments: { target: 'example.com' } });
       } finally {
         await mcp.close();
       }
@@ -197,55 +259,65 @@ describe('MCP over HTTP through LiveAuth boundary', () => {
       await mcp.close();
     }
   });
-  it('preserves a billed execution failure and receipt through the real SDK and MCP', async () => {
-    const adapter = createLiveAuthAdapter({
-      publicKey: 'test',
-      baseUrl: 'https://test.invalid',
-      gateFactory: (options) =>
-        createMcpGate({
-          ...options,
-          fetch: async (url: string) =>
-            new Response(
-              JSON.stringify(
-                String(url).endsWith('/usage')
-                  ? { status: 'active' }
-                  : {
-                      status: 'ok',
-                      grossSats: 1,
-                      callsUsed: 1,
-                      satsUsed: 1,
-                      revenueEventId: 'event',
-                      receipt: {
-                        body: { idempotencyKey: 'req-integration', requestId: 'server-request' },
+  it.each([
+    ['dns_lookup', 1],
+    ['site_audit', 5],
+  ] as const)(
+    'preserves a billed %s failure and receipt through the real SDK and MCP',
+    async (toolName, priceSats) => {
+      const adapter = createLiveAuthAdapter({
+        publicKey: 'test',
+        baseUrl: 'https://test.invalid',
+        gateFactory: (options) =>
+          createMcpGate({
+            ...options,
+            fetch: async (url: string) =>
+              new Response(
+                JSON.stringify(
+                  String(url).endsWith('/usage')
+                    ? { status: 'active' }
+                    : {
+                        status: 'ok',
+                        grossSats: priceSats,
+                        callsUsed: 1,
+                        satsUsed: priceSats,
+                        revenueEventId: 'event',
+                        receipt: {
+                          body: { idempotencyKey: 'req-integration', requestId: 'server-request' },
+                        },
                       },
-                    },
+                ),
               ),
-            ),
-        }) as LiveAuthGate,
-    });
-    invoke.mockImplementationOnce((args) => adapter.invoke(args));
-    const mcp = await client();
-    try {
-      const result = await mcp.callTool({
-        name: 'dns_lookup',
-        arguments: { hostname: 'failure.example' },
+          }) as LiveAuthGate,
       });
-      expect(result.isError).toBe(true);
-      expect(result._meta).toMatchObject({
-        requestId: 'req-integration',
-        liveauth: {
-          billed: true,
-          grossSats: 1,
-          revenueEventId: 'event',
-          idempotencyKey: 'req-integration',
-          receipt: { body: { requestId: 'server-request', idempotencyKey: 'req-integration' } },
-        },
-      });
-      expect(JSON.stringify(result)).not.toContain('valid-token');
-    } finally {
-      await mcp.close();
-    }
-  });
+      invoke.mockImplementationOnce((args) => adapter.invoke(args));
+      const mcp = await client();
+      try {
+        const result = await mcp.callTool({
+          name: toolName,
+          arguments:
+            toolName === 'site_audit'
+              ? { target: 'failure.example' }
+              : { hostname: 'failure.example' },
+        });
+        expect(result.isError).toBe(true);
+        expect(result._meta).toMatchObject({
+          requestId: 'req-integration',
+          liveauth: {
+            billed: true,
+            grossSats: priceSats,
+            revenueEventId: 'event',
+            idempotencyKey: 'req-integration',
+            receipt: { body: { requestId: 'server-request', idempotencyKey: 'req-integration' } },
+          },
+        });
+        expect(JSON.stringify(result)).not.toContain('valid-token');
+        expect(JSON.stringify(result)).not.toContain('Sensitive internal DNS error');
+      } finally {
+        await mcp.close();
+      }
+    },
+  );
   it('rejects malformed JSON', async () => {
     const response = await fetch(url, {
       method: 'POST',

@@ -8,6 +8,28 @@ export const tlsInspectInput = z.object({
   port: z.number().int().min(1).max(65535).default(443),
 });
 
+export interface TlsInspectResult {
+  hostname: string;
+  port: number;
+  protocol: string | null;
+  hostnameValid: boolean;
+  cipher: { name: string; version: string; standardName?: string };
+  certificate: {
+    subject: tls.PeerCertificate['subject'];
+    issuer: tls.PeerCertificate['issuer'];
+    sans: string[];
+    validFrom: string;
+    validUntil: string;
+    daysRemaining: number;
+    fingerprint256: string;
+  };
+  chain: Array<{
+    subject: tls.PeerCertificate['subject'];
+    issuer: tls.PeerCertificate['issuer'];
+    fingerprint256: string;
+  }>;
+}
+
 export function createTlsInspect(
   deps: { resolver?: AddressResolver; connect?: typeof tls.connect } = {},
 ) {
@@ -31,7 +53,7 @@ export function createTlsInspect(
         rejectUnauthorized: true,
         timeout: 10_000,
       });
-      return await new Promise<{ data: Record<string, unknown> }>((resolve, reject) => {
+      return await new Promise<{ data: TlsInspectResult }>((resolve, reject) => {
         const abort = () =>
           socket.destroy(
             context.signal?.reason instanceof Error ? context.signal.reason : new Error('Aborted'),
@@ -70,6 +92,7 @@ export function createTlsInspect(
             hostname: normalized,
             port,
             protocol: socket.getProtocol(),
+            hostnameValid: !tls.checkServerIdentity(normalized, certificate),
             cipher: {
               name: cipher.name,
               version: cipher.version,
