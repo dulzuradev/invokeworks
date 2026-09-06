@@ -1,8 +1,22 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import { toolCatalog } from '@invokeworks/tools';
+import ToolCards from '../components/ToolCards.astro';
+import { auditInput, auditOutput } from '../content/site-audit';
 ---
-<Layout title="Useful tools for autonomous agents">
-  <section class="hero"><div class="eyebrow">Open-source MCP infrastructure</div><h1>Useful tools for autonomous agents.</h1><p>InvokeWorks is a focused collection of dependable network utilities that agents can discover, call, and pay for through one public MCP endpoint.</p><div class="endpoint"><span class="dot"></span>https://mcp.invokeworks.dev/mcp</div><div class="actions"><a class="button primary" href="/connect/">Connect an agent</a><a class="button" href="/tools/">Explore {toolCatalog.length} tools</a></div></section>
-  <section class="section"><div class="eyebrow">Built to inspect</div><h2>Small surface. Clear contracts.</h2><div class="grid">{toolCatalog.map(tool => <a class="card" href={`/tools/${tool.name}/`}><div class="eyebrow">{tool.docs.category}</div><h2>{tool.displayName}</h2><p>{tool.description}</p><span class="price">{tool.priceSats} SAT{tool.priceSats === 1 ? '' : 'S'} / CALL</span></a>)}</div></section>
+<Layout title="Paid MCP Tools for AI Agents" description="Run DNS, TLS, HTTP, redirect, and security-header audits from an MCP client for 5 sats, with authentication and metering by LiveAuth.">
+  <section class="hero">
+    <div class="eyebrow">Open-source tools · One MCP endpoint</div>
+    <h1>Give your AI agent useful paid tools.</h1>
+    <p>Run a complete DNS, TLS, HTTP, redirect, and security-header audit for <strong>5 sats</strong>. One call to <code>site_audit</code> returns the findings directly to your agent.</p>
+    <div class="actions"><a class="button primary" href="/tools/site_audit/">Try Site Audit</a><a class="button" href="/connect/">View MCP Setup</a></div>
+    <p class="hero-note">No agent account or API subscription. The proof-of-work session flow needs no human payment step. LiveAuth handles authentication and per-call metering.</p>
+  </section>
+  <section class="featured-audit" aria-labelledby="featured-title">
+    <div class="feature-intro"><div><div class="eyebrow">Featured · Combined audit</div><h2 id="featured-title">One call. A useful site report.</h2><p>Ask your agent: “Audit https://example.com and tell me the most important issues.”</p></div><span class="price price-badge">5 SATS / CALL</span></div>
+    <div class="example-grid"><div><h3>Agent sends</h3><pre><code>{JSON.stringify(auditInput, null, 2)}</code></pre></div><div><h3>Agent receives</h3><pre><code>{JSON.stringify(auditOutput, null, 2)}</code></pre></div></div>
+    <p class="caption">Shortened, illustrative output. The score is an informational heuristic, not a formal security certification.</p>
+    <a class="text-link" href="/tools/site_audit/">See what Site Audit checks →</a>
+  </section>
+  <section class="section"><div class="eyebrow">Simple integration</div><h2>Your agent brings the task.</h2><p class="lead">Connect over Streamable HTTP. LiveAuth authorizes and meters the accepted call; InvokeWorks returns structured results and billing metadata, including the receipt.</p><div class="endpoint"><span class="dot" aria-hidden="true"></span><span>https://mcp.invokeworks.dev/mcp</span></div><div class="actions"><a class="button" href="/connect/">Connect to InvokeWorks</a><a class="button" href="https://github.com/dulzuradev/invokeworks">View on GitHub</a></div></section>
+  <section class="section"><div class="eyebrow">Tool catalog</div><h2>A complete audit, or a focused check.</h2><p class="lead">Choose Site Audit for one combined result. Use the individual tools when you only need a network primitive.</p><ToolCards /></section>
 </Layout>

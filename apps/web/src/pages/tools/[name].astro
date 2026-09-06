@@ -1,6 +1,28 @@
 ---
-import Layout from '../../layouts/Layout.astro'; import { toolCatalog } from '@invokeworks/tools';
-export function getStaticPaths(){ return toolCatalog.map(tool => ({ params: { name: tool.name }, props: { tool } })); }
+import Layout from '../../layouts/Layout.astro';
+import { toolCatalog } from '@invokeworks/tools';
+import { auditInput, auditOutput } from '../../content/site-audit';
+export function getStaticPaths() { return toolCatalog.map(tool => ({ params: { name: tool.name }, props: { tool } })); }
 const { tool } = Astro.props;
+const isAudit = tool.name === 'site_audit';
 ---
-<Layout title={tool.displayName} description={tool.description}><section class="section"><div class="eyebrow">{tool.docs.category} · {tool.priceSats} sats/call</div><h1>{tool.name}</h1><p class="lead">{tool.longDescription}</p><h2>Example input</h2><pre><code>{JSON.stringify(tool.docs.examples[0], null, 2)}</code></pre>{tool.name === 'site_audit' && <><h2>Example output (shortened)</h2><pre><code>{JSON.stringify({ target: 'https://example.com/', hostname: 'example.com', dns: { records: { A: ['93.184.216.34'] } }, tls: { protocol: 'TLSv1.3', hostnameValid: true }, http: { status: 200, finalUrl: 'https://example.com/', https: true }, securityHeaders: { strictTransportSecurity: { present: false, value: null, applicable: true } }, issues: [{ severity: 'warning', code: 'missing_hsts', message: 'Consider Strict-Transport-Security where appropriate.' }], score: 95 }, null, 2)}</code></pre><p>Illustrative output. The informational score starts at 100, subtracts 25 per critical finding and 5 per warning, and stays between 0 and 100. Informational findings deduct nothing. This is not a formal security certification. Headers are recommendations, and their presence does not prove a correct policy.</p><p>TLS checks the original host; HTTP follows redirects. Unavailable sections are null and produce findings. LiveAuth meters the call at 5 sats; execution failures after authorization remain billable.</p></>}<div class="actions"><a class="button primary" href="/connect/">Connect</a><a class="button" href="/tools/">All tools</a></div></section></Layout>
+<Layout title={isAudit ? 'Site Audit MCP Tool — DNS, TLS & HTTP Audit for 5 Sats' : tool.displayName} description={isAudit ? 'Run DNS, TLS, HTTP, redirect, and security-header checks against a public site for 5 sats per call, metered by LiveAuth.' : tool.description}>
+  <section class="section">
+    <div class="eyebrow">{isAudit ? 'Featured · Combined audit' : tool.docs.category} · {tool.priceSats} sats per call</div>
+    <h1>{isAudit ? 'Site Audit' : tool.name}</h1>
+    <p class="lead">{isAudit ? 'Runs DNS, TLS, HTTP, redirect, and security-header checks against a public site. Give your agent one structured report with the most useful findings.' : tool.longDescription}</p>
+    {isAudit && <><code class="tool-name">site_audit</code><div class="actions"><a class="button primary" href="/connect/">Connect to InvokeWorks</a><a class="button" href="https://github.com/dulzuradev/invokeworks">View on GitHub</a></div><p>5 sats per call. LiveAuth authenticates and meters the request; the result goes directly back to your agent. The proof-of-work session flow requires no agent account, subscription, or human payment step.</p></>}
+    <div class:list={{ 'example-grid': isAudit }}>
+      <div><h2>Example input</h2><pre><code>{JSON.stringify(isAudit ? auditInput : tool.docs.examples[0], null, 2)}</code></pre>{isAudit && <p class="caption">Accepts HTTP/HTTPS URLs or bare hostnames, which default to HTTPS. Public sites only.</p>}</div>
+      {isAudit && <div><h2>Example output</h2><pre><code>{JSON.stringify(auditOutput, null, 2)}</code></pre><p class="caption">Shortened and illustrative. The full response also contains DNS, TLS, HTTP, and security-header details.</p></div>}
+    </div>
+    {isAudit && <>
+      <h2>What is checked</h2>
+      <ul class="check-list"><li><strong>DNS:</strong> A, AAAA, CNAME, MX, and nameserver records.</li><li><strong>TLS:</strong> certificate identity, validity, negotiated protocol, and certificate chain.</li><li><strong>HTTP:</strong> response status, headers, timing, and redirect chain.</li><li><strong>HTTPS usage:</strong> whether the response and redirect path use encryption.</li><li><strong>Security headers:</strong> HSTS, Content-Security-Policy, X-Content-Type-Options, X-Frame-Options, Referrer-Policy, and Permissions-Policy.</li><li><strong>Findings:</strong> consistent issue codes and severity levels that your agent can prioritize.</li><li><strong>Informational score:</strong> a concise 0–100 summary.</li></ul>
+      <h2>How to read the score</h2><p>The score is an informational heuristic, not a formal security certification. It starts at 100, deducts 25 per critical finding and 5 per warning, and stays between 0 and 100. Informational findings deduct nothing. Header recommendations depend on the site's purpose; presence alone does not prove a correct policy.</p>
+      <h2>Useful results when a check fails</h2><p>Available checks can still be returned when one inspection area fails. For example, a TLS failure can appear as a finding alongside available DNS and HTTP results. An unreachable or disallowed starting destination may prevent an audit. TLS checks the original host; HTTP follows redirects to the final response.</p>
+      <h2>Authentication, billing, and retries</h2><p>Authentication happens first. LiveAuth then meters an accepted execution at 5 sats, and InvokeWorks returns the result with billing metadata and a receipt. An execution that fails after charging remains billable.</p><p>Retry the same call with the same idempotency key to avoid a duplicate charge. The audit may run again; retry-safe billing does not mean the result is cached. Use a new key for each new logical call.</p>
+    </>}
+    <div class="actions"><a class="button primary" href="/connect/">View MCP Setup</a><a class="button" href="/tools/">All tools</a></div>
+  </section>
+</Layout>

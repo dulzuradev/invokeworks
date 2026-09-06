@@ -1,21 +1,30 @@
 # InvokeWorks
 
-Useful tools for autonomous agents.
+Give your AI agent useful paid tools.
 
-InvokeWorks is an open-source, publicly hosted collection of focused MCP tools. It separates tool logic from MCP transport and delegates authentication, budgets, metering, per-tool charges, and signed receipts to LiveAuth through its public SDK.
+InvokeWorks is an open-source MCP server for useful paid agent tools. Its flagship,
+**`site_audit`**, combines DNS, TLS, HTTP, redirect, and security-header checks into
+one structured result for **5 sats per call**.
 
+An agent can run a complete external site check without creating an account or
+subscribing to an API. The proof-of-work session flow needs no human payment step.
+[LiveAuth](https://docs.liveauth.app/#doc/mcp-liveauth-gate.md) handles MCP
+authentication and metering; InvokeWorks returns the result and billing metadata,
+including the receipt. Session budgets and expiry still apply.
+
+- Source: <https://github.com/dulzuradev/invokeworks>
 - Website: <https://invokeworks.dev>
 - MCP endpoint: <https://mcp.invokeworks.dev/mcp>
 - Health: <https://mcp.invokeworks.dev/health>
 
 ## Tools
 
-| Tool           | Purpose                                                             |  Price |
-| -------------- | ------------------------------------------------------------------- | -----: |
-| `dns_lookup`   | A, AAAA, CNAME, MX, TXT, NS, and SOA queries                        |  1 sat |
-| `http_inspect` | HTTP status, redirects, headers, size, timing, and security headers | 2 sats |
-| `tls_inspect`  | TLS protocol, cipher, certificate, SANs, validity, and chain        | 2 sats |
-| `site_audit`   | Combined DNS, TLS, HTTP, and security-header audit                  | 5 sats |
+| Tool             | Purpose                                                             |  Price |
+| ---------------- | ------------------------------------------------------------------- | -----: |
+| **`site_audit`** | Combined DNS, TLS, HTTP, and security-header audit                  | 5 sats |
+| `dns_lookup`     | A, AAAA, CNAME, MX, TXT, NS, and SOA queries                        |  1 sat |
+| `http_inspect`   | HTTP status, redirects, headers, size, timing, and security headers | 2 sats |
+| `tls_inspect`    | TLS protocol, cipher, certificate, SANs, validity, and chain        | 2 sats |
 
 ### Site Audit
 
@@ -32,33 +41,20 @@ Shortened example output (illustrative; actual results vary):
 
 ```json
 {
-  "target": "https://example.com/",
   "hostname": "example.com",
-  "dns": {
-    "records": { "A": ["93.184.216.34"], "AAAA": [], "CNAME": [], "MX": [], "NS": [] },
-    "failedRecordTypes": []
-  },
-  "tls": { "protocol": "TLSv1.3", "hostnameValid": true, "certificate": { "daysRemaining": 90 } },
-  "http": {
-    "initialUrl": "https://example.com/",
-    "finalUrl": "https://example.com/",
-    "status": 200,
-    "https": true,
-    "redirects": []
-  },
-  "securityHeaders": {
-    "strictTransportSecurity": { "present": false, "value": null, "applicable": true }
-  },
+  "score": 95,
   "issues": [
     {
       "severity": "warning",
-      "code": "missing_hsts",
-      "message": "strict-transport-security is absent; consider this recommended protection where appropriate."
+      "code": "missing_csp",
+      "message": "content-security-policy is absent; consider this recommended protection where appropriate."
     }
-  ],
-  "score": 95
+  ]
 }
 ```
+
+The full response also includes DNS, TLS, HTTP, and security-header sections.
+See [Site Audit](https://invokeworks.dev/tools/site_audit/) for coverage and examples.
 
 The score is informational, **not a formal security certification**: start at 100,
 subtract 25 per critical finding and 5 per warning, subtract nothing for informational
@@ -81,7 +77,72 @@ Stable issue codes: `dns_lookup_failed`, `tls_failed`, `tls_certificate_expired`
 `missing_csp`, `missing_x_content_type_options`, `missing_frame_protection`,
 `missing_referrer_policy`, `missing_permissions_policy`.
 
+## Use InvokeWorks from an MCP client
+
+Connect a Streamable HTTP MCP client to **https://mcp.invokeworks.dev/mcp**.
+First obtain an active MCP session token for the InvokeWorks project through the
+[LiveAuth start/confirm flow](https://docs.liveauth.app/#doc/mcp-liveauth-gate.md).
+The proof-of-work path needs no agent account, API subscription, or human payment
+step. Supply the JWT as `Authorization: Bearer <liveauth-jwt>`; discovery is public,
+but tool calls require authorization.
+
+This JavaScript configuration uses the MCP client package supported by the repo's
+integration tests. Set `LIVEAUTH_JWT` to that session token and keep it out of source control.
+
+```sh
+npm install @modelcontextprotocol/client@^2.0.0
+```
+
+```js
+import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
+
+const jwt = process.env.LIVEAUTH_JWT;
+if (!jwt) throw new Error('Set LIVEAUTH_JWT to an active InvokeWorks MCP session token');
+
+// One ID per logical call. Keep this ID and the arguments unchanged on a retry.
+const requestId = crypto.randomUUID();
+const client = new Client({ name: 'site-audit-client', version: '1.0.0' });
+const transport = new StreamableHTTPClientTransport(new URL('https://mcp.invokeworks.dev/mcp'), {
+  requestInit: {
+    headers: {
+      Authorization: `Bearer ${jwt}`,
+      'X-Request-Id': requestId,
+    },
+  },
+});
+
+try {
+  await client.connect(transport);
+  const result = await client.callTool({
+    name: 'site_audit',
+    arguments: { target: 'https://example.com' },
+  });
+  console.log(result); // Audit result plus _meta.liveauth billing metadata / receipt.
+} finally {
+  await client.close();
+}
+```
+
+Example agent task: **“Audit https://example.com and tell me the most important issues.”**
+
+The agent can invoke `site_audit`; LiveAuth meters the accepted execution at 5 sats.
+`X-Request-Id` is also the billing idempotency key. Keep it and the arguments unchanged
+for a retry of the same call, and use a new key for a new logical call. Retry-safe
+charging does not cache results or prevent handler re-execution. Execution failures
+after charging remain billable. See the [connection guide](https://invokeworks.dev/connect/).
+
 ## Architecture
+
+```text
+Agent / MCP Client
+  → InvokeWorks
+  → LiveAuth authentication + metering
+  → site_audit
+  → receipt / result
+```
+
+InvokeWorks uses `@liveauth-labs/mcp-server ^1.2.0`. Input validation happens before
+the gate; LiveAuth validates authorization and charges before the tool executes.
 
 - `apps/server`: Hono/Node service using MCP SDK v2 `createMcpHandler()`, with modern stateless 2026-07-28 and SDK-supported 2025-era compatibility.
 - `apps/web`: static Astro site.

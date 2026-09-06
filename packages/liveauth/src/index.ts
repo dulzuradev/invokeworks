@@ -85,7 +85,7 @@ export function createLiveAuthAdapter(config: {
         ) {
           throw error;
         }
-        // Support SDK 1.1.x while 1.2.0 is awaiting publication.
+        // Preserve compatibility with older SDK execution-error shapes.
         if (acceptedCharge) {
           const failure = Object.assign(
             new Error('Tool execution failed after LiveAuth authorization'),

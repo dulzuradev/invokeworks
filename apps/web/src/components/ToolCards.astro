@@ -1,0 +1,5 @@
+---
+import { toolCatalog } from '@invokeworks/tools';
+const orderedTools = [...toolCatalog].sort((a, b) => Number(b.name === 'site_audit') - Number(a.name === 'site_audit'));
+---
+<div class="grid tool-grid">{orderedTools.map(tool => <a class:list={['card', { 'card-featured': tool.name === 'site_audit' }]} href={`/tools/${tool.name}/`}><div class="eyebrow">{tool.name === 'site_audit' ? 'Featured · Combined audit' : tool.docs.category}</div><h2>{tool.displayName}</h2><code class="tool-name">{tool.name}</code><p>{tool.name === 'site_audit' ? 'DNS, TLS, HTTP, redirects, and security headers in one result. Recommended for a complete external site check.' : tool.description}</p><span class="price">{tool.priceSats} SAT{tool.priceSats === 1 ? '' : 'S'} / CALL</span></a>)}</div>

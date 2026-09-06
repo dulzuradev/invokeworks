@@ -1,5 +1,12 @@
 # LiveAuth dogfooding notes
 
+**Current integration:** InvokeWorks consumes `@liveauth-labs/mcp-server ^1.2.0`.
+The operator reports `site_audit` is live and registered at 5 sats, with production
+PoW authentication, successful execution, receipts, and same-request-ID billing
+idempotency verified. One call increments `callsUsed` by 1 and `satsUsed` by 5;
+remaining budget decreases by 5. The observations below retain the SDK versions
+used at the time; they are historical diagnostics, not current setup instructions.
+
 Findings 001–004 were observed while integrating strictly as an unrelated third-party customer through public docs and `@liveauth-labs/mcp-server`, without internal LiveAuth material. Finding 005 includes a subsequent source-level investigation and read-only verification in the LiveAuth console.
 
 ### LA-DOGFOOD-001 — Environment variable naming is inconsistent
@@ -64,17 +71,17 @@ Findings 001–004 were observed while integrating strictly as an unrelated thir
 
 **Regression coverage:** New SDK cases cover primary keys, aliases, unchanged request headers, and invalid-solution rejection. New server tests execute the real public-key middleware and cover canonical PoW, signature-validated JWT project claims, invalid hashes, foreign-project quotes/challenges, fresh sessions/replay, and Lightning/L402 alias-session binding. The SDK suite passed 47 tests and its TypeScript build; 45 relevant server tests passed with a successful .NET build (existing warnings).
 
-**Release impact:** Publish a fixed MCP npm version newer than 1.1.1. No LiveAuth runtime server change or deployment is required for this PoW fix. InvokeWorks requires no application-code workaround or configured-key change; consumers performing SDK client authentication should update the package once released.
+**Historical release recommendation (now superseded by SDK ^1.2.0 consumption):** Publish a fixed MCP npm version newer than 1.1.1. No LiveAuth runtime server change or deployment is required for this PoW fix. InvokeWorks requires no application-code workaround or configured-key change; consumers performing SDK client authentication should update the package once released.
 
 **Documentation/API improvements:** The SDK README now distinguishes authentication keys from canonical PoW keys and explains project-ID checks. The console displays this project as TEST; source inspection also shows primary-key resolution checks LIVE/AllowDemoAuth while the API-key alias path checks active status without that environment condition. This separate policy asymmetry should be documented/reviewed, but was not changed in this fix. The plain-text `Hash mismatch` response also obscures the authentication error behind the SDK's non-JSON message; a structured API error would improve diagnostics.
 
 ### LA-DOGFOOD-006 — Tool availability denial is presented as budget exhaustion
 
-**Status: partially resolved (source fix complete; release/deployment pending).**
+**Status: source fix shipped in SDK 1.2.0, now consumed by InvokeWorks.**
 SDK 1.2.0 adds `ChargeDeniedError.reason`; backend unknown-tool responses are JSON
 and Draft tools return `tool_unpublished`. InvokeWorks exposes known denial reasons
 in `_meta.liveauth`. Existing 1.1.x structured denial details are also supported.
-See [integration contract](liveauth-contract.md). Production has not been retested.
+See [integration contract](liveauth-contract.md). The historical denial scenario below has not been independently retested in this documentation update.
 
 **Observed:** During production smoke testing with published `@liveauth-labs/mcp-server@1.1.2`, PoW and session validation passed and the session had 10,000 sats of remaining allowance. One direct `gate.charge(jwt, 1, ...)` for `dns_lookup` returned `status=deny`, `ok=false`, and `reason=tool_inactive`, with no usage increase. The SDK's `gate.invoke()`/`gateTool()` reports any unsuccessful charge as `LiveAuth MCP budget denied this tool call`, obscuring the actual reason. The operator subsequently reported publishing/activating the tool, and the completion run verified successful one-sat DNS calls. The operator also reported earlier `Unknown MCP tool` responses; those were not independently captured in this investigation.
 
@@ -103,7 +110,7 @@ with ENOTFOUND after authorization, while calls used and sats used each increase
 by one and remaining budget decreased by one. No refund was observed; the MCP
 error response exposed only its client request ID.
 
-**Status: partially resolved (source fix complete; rollout pending).** The documented
+**Status: source fix available in SDK 1.2.0, now consumed by InvokeWorks.** The documented
 policy is that authorization plus accepted execution is billable. SDK 1.2.0 wraps
 handler exceptions in `ToolExecutionError` carrying charge metadata and a private
 cause. InvokeWorks returns sanitized `_meta.liveauth` on billed failures, including

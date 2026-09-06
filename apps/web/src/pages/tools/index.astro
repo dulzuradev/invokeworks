@@ -1,4 +1,7 @@
 ---
-import Layout from '../../layouts/Layout.astro'; import { toolCatalog } from '@invokeworks/tools';
+import Layout from '../../layouts/Layout.astro';
+import ToolCards from '../../components/ToolCards.astro';
 ---
-<Layout title="Tool catalog"><section class="section"><div class="eyebrow">Catalog</div><h1>Tools</h1><p class="lead">Purpose-built network primitives with structured output, strict validation, and transparent per-call prices.</p><div class="grid">{toolCatalog.map(tool => <a class="card" href={`/tools/${tool.name}/`}><div class="eyebrow">{tool.docs.category}</div><h2>{tool.name}</h2><p>{tool.description}</p><span class="price">{tool.priceSats} SAT{tool.priceSats === 1 ? '' : 'S'} / CALL</span></a>)}</div></section></Layout>
+<Layout title="MCP Tool Catalog" description="Site Audit combines DNS, TLS, HTTP, redirects, and security headers for 5 sats. Explore all four InvokeWorks tools and their per-call prices.">
+  <section class="section"><div class="eyebrow">Catalog · Transparent per-call pricing</div><h1>Tools that earn their call.</h1><p class="lead">Start with Site Audit for one combined report. Choose DNS Lookup, HTTP Inspect, or TLS Inspect for a focused check. LiveAuth handles authentication and metering for all four.</p><ToolCards /></section>
+</Layout>

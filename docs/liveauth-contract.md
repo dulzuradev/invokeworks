@@ -90,7 +90,7 @@ Use a new key for a new logical call and reuse a key only for the same intended
 operation. Deduplicated charging does not cache handler results: retries can execute
 the handler again. Tool-state and price checks still precede deduplication.
 
-## InvokeWorks rollout
+## InvokeWorks integration
 
 Successful responses keep `_meta.requestId` and `_meta.liveauth`. Billed execution
 failures return `isError=true` and `_meta.liveauth` with `billed`, gross sats,
@@ -99,14 +99,19 @@ known `reason` with `billed=false`; unknown reason strings are projected as `den
 The adapter also captures accepted charge context for compatibility with SDK 1.1.x.
 Structured HTTP 404 tool denials require SDK 1.2.0 for the full gate result contract.
 
-After SDK publication, update the dependency and lockfile, validate, and redeploy:
+InvokeWorks now consumes the published `@liveauth-labs/mcp-server ^1.2.0`;
+the dependency and lockfile already reflect that version. The operator reports
+`site_audit` is live, registered at 5 sats, and production smoke-tested for PoW,
+usage accounting, receipts, and identical-request retry behavior.
+
+Local validation:
 
 ```sh
-pnpm --filter @invokeworks/liveauth add '@liveauth-labs/mcp-server@^1.2.0'
 pnpm test
 pnpm typecheck
 pnpm build
 ```
 
-No dependency on an unpublished registry version is committed. Deploy the backend
-changes separately to obtain JSON unknown-tool errors and Draft-specific reasons.
+The operator-reported successful-call smoke does not independently establish every
+denial or billed-failure scenario above. Backend diagnostics depend on the deployed
+backend version; this documentation update does not change or deploy it.
